@@ -33,6 +33,7 @@ export default function FoodPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [scanningBarcode, setScanningBarcode] = useState(false)
+  const [barcodeStream, setBarcodeStream] = useState<MediaStream | null>(null)
   const barcodeVideoRef = useRef<HTMLVideoElement>(null)
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null)
   const [creatingCustomMeal, setCreatingCustomMeal] = useState(false)
@@ -395,11 +396,8 @@ export default function FoodPage() {
         video: { facingMode: 'environment' } // Use back camera on mobile
       })
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        setCameraStream(stream)
-        setShowCamera(true)
-      }
+      setCameraStream(stream)
+      setShowCamera(true)
     } catch (e) {
       alert('Camera access denied. Please allow camera access.')
     }
@@ -471,14 +469,9 @@ export default function FoodPage() {
         video: { facingMode: 'environment' }
       })
 
-      if (barcodeVideoRef.current) {
-        barcodeVideoRef.current.srcObject = stream
-        setShowBarcodeScanner(true)
-        setScanningBarcode(true)
-
-        // Start scanning for barcodes
-        scanBarcode()
-      }
+      setBarcodeStream(stream)
+      setShowBarcodeScanner(true)
+      setScanningBarcode(true)
     } catch (e) {
       alert('Camera access denied. Please allow camera access.')
     }
@@ -488,10 +481,9 @@ export default function FoodPage() {
     setScanningBarcode(false)
     setShowBarcodeScanner(false)
 
-    if (barcodeVideoRef.current && barcodeVideoRef.current.srcObject) {
-      const stream = barcodeVideoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach(track => track.stop())
-      barcodeVideoRef.current.srcObject = null
+    if (barcodeStream) {
+      barcodeStream.getTracks().forEach(track => track.stop())
+      setBarcodeStream(null)
     }
   }
 
@@ -584,6 +576,30 @@ export default function FoodPage() {
       fetchSavedMeals()
     }
   }, [status])
+
+  // Handle camera stream when modal opens
+  useEffect(() => {
+    if (showCamera && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err)
+      })
+    }
+  }, [showCamera, cameraStream])
+
+  // Handle barcode scanner stream when modal opens
+  useEffect(() => {
+    if (showBarcodeScanner && barcodeStream && barcodeVideoRef.current) {
+      barcodeVideoRef.current.srcObject = barcodeStream
+      barcodeVideoRef.current.play().catch(err => {
+        console.error('Error playing barcode video:', err)
+      })
+      // Start scanning after video is ready
+      setTimeout(() => {
+        scanBarcode()
+      }, 500)
+    }
+  }, [showBarcodeScanner, barcodeStream])
 
   if (status === 'loading') {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
