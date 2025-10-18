@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -9,11 +9,15 @@ export default function WorkoutPage() {
   const router = useRouter()
   const params = useParams()
   const templateId = params.id as string
-  
+
   const [template, setTemplate] = useState<any>(null)
   const [lastSession, setLastSession] = useState<any>(null)
   const [currentExercises, setCurrentExercises] = useState<any[]>([])
   const [newExerciseName, setNewExerciseName] = useState('')
+  const [workoutStarted, setWorkoutStarted] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -25,8 +29,89 @@ export default function WorkoutPage() {
     if (status === 'authenticated') {
       fetchTemplate()
       fetchLastSession()
+      loadWorkoutProgress()
     }
   }, [status, templateId])
+
+  // Timer effect
+  useEffect(() => {
+    if (workoutStarted) {
+      timerRef.current = setInterval(() => {
+        setElapsedTime((prev) => prev + 1)
+      }, 1000)
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [workoutStarted])
+
+  // Save to localStorage whenever exercises change and workout is started
+  useEffect(() => {
+    if (workoutStarted && currentExercises.length > 0) {
+      saveWorkoutProgress()
+    }
+  }, [currentExercises, workoutStarted])
+
+  // Navigation guard
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (workoutStarted) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [workoutStarted])
+
+  const getStorageKey = () => `workout_progress_${templateId}`
+
+  const saveWorkoutProgress = () => {
+    const progressData = {
+      exercises: currentExercises,
+      elapsedTime,
+      timestamp: new Date().toISOString()
+    }
+    localStorage.setItem(getStorageKey(), JSON.stringify(progressData))
+  }
+
+  const loadWorkoutProgress = () => {
+    const saved = localStorage.getItem(getStorageKey())
+    if (saved) {
+      try {
+        const progressData = JSON.parse(saved)
+        setCurrentExercises(progressData.exercises)
+        setElapsedTime(progressData.elapsedTime || 0)
+        setWorkoutStarted(true)
+      } catch (error) {
+        console.error('Failed to load workout progress:', error)
+      }
+    }
+  }
+
+  const clearWorkoutProgress = () => {
+    localStorage.removeItem(getStorageKey())
+    setElapsedTime(0)
+    setWorkoutStarted(false)
+  }
+
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   const fetchTemplate = async () => {
     const response = await fetch('/api/templates')
@@ -110,7 +195,36 @@ export default function WorkoutPage() {
     setCurrentExercises(newExercises)
   }
 
+  const startWorkout = () => {
+    setWorkoutStarted(true)
+    setElapsedTime(0)
+  }
+
+  const handleCancelWorkout = () => {
+    setShowCancelConfirm(true)
+  }
+
+  const confirmCancelWorkout = () => {
+    clearWorkoutProgress()
+    setShowCancelConfirm(false)
+    router.push('/')
+  }
+
+  const handleBack = () => {
+    if (workoutStarted) {
+      if (confirm('You have an active workout. Are you sure you want to leave? Your progress will be saved.')) {
+        router.push('/')
+      }
+    } else {
+      router.push('/')
+    }
+  }
+
   const finishWorkout = async () => {
+    if (!confirm('Finish and save this workout?')) {
+      return
+    }
+
     await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,6 +234,8 @@ export default function WorkoutPage() {
         exercises: currentExercises
       })
     })
+
+    clearWorkoutProgress()
     router.push('/')
   }
 
@@ -131,19 +247,83 @@ export default function WorkoutPage() {
     return null
   }
 
+  // Preview screen - shown before workout starts
+  if (!workoutStarted) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-4xl font-bold text-blue-600">
+              {template.name}
+            </h1>
+            <button
+              onClick={handleBack}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            >
+              Back
+            </button>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Workout Preview</h2>
+            <p className="text-gray-600 mb-4">
+              This workout contains {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
+            </p>
+
+            <div className="space-y-3 mb-6">
+              {template.exercises.map((exercise: any, index: number) => (
+                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                  <h3 className="font-bold text-gray-900">{exercise.name}</h3>
+                  {exercise.recommendedSets && exercise.recommendedReps && (
+                    <p className="text-sm text-purple-600">
+                      AI Recommended: {exercise.recommendedSets} sets × {exercise.recommendedReps} reps
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {lastSession && (
+              <div className="bg-blue-50 p-4 rounded mb-6">
+                <h3 className="font-bold text-gray-900 mb-2">Last Workout</h3>
+                <p className="text-sm text-gray-600">
+                  {new Date(lastSession.date).toLocaleDateString()} at {new Date(lastSession.date).toLocaleTimeString()}
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={startWorkout}
+              className="w-full bg-green-600 text-white px-6 py-4 rounded hover:bg-green-700 font-bold text-xl"
+            >
+              Start Workout
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Active workout screen
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-blue-600">
-            {template.name}
-          </h1>
-          <button
-            onClick={() => router.push('/')}
-            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-          >
-            Back
-          </button>
+        {/* Fixed header with timer */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6 sticky top-4 z-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-blue-600">
+                {template.name}
+              </h1>
+              <p className="text-sm text-gray-600">Workout in progress</p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-green-600 font-mono">
+                {formatTime(elapsedTime)}
+              </div>
+              <p className="text-xs text-gray-500">Elapsed time</p>
+            </div>
+          </div>
         </div>
 
         {currentExercises.map((exercise, exerciseIndex) => {
@@ -245,12 +425,46 @@ export default function WorkoutPage() {
           </div>
         </div>
 
-        <button
-          onClick={finishWorkout}
-          className="w-full bg-green-600 text-white px-6 py-4 rounded hover:bg-green-700 font-bold text-lg"
-        >
-          Finish Workout
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleCancelWorkout}
+            className="flex-1 bg-red-600 text-white px-6 py-4 rounded hover:bg-red-700 font-bold text-lg"
+          >
+            Cancel Workout
+          </button>
+          <button
+            onClick={finishWorkout}
+            className="flex-1 bg-green-600 text-white px-6 py-4 rounded hover:bg-green-700 font-bold text-lg"
+          >
+            Finish Workout
+          </button>
+        </div>
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Cancel Workout?</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to cancel this workout? All your progress will be lost and cannot be recovered.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="flex-1 bg-gray-600 text-white px-4 py-3 rounded hover:bg-gray-700 font-semibold"
+                >
+                  Keep Working Out
+                </button>
+                <button
+                  onClick={confirmCancelWorkout}
+                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded hover:bg-red-700 font-semibold"
+                >
+                  Yes, Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

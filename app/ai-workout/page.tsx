@@ -15,6 +15,8 @@ export default function AIWorkoutPage() {
   const [limitations, setLimitations] = useState('')
   const [preferences, setPreferences] = useState('')
   const [generatedPlan, setGeneratedPlan] = useState<any[]>([])
+  const [userFeedback, setUserFeedback] = useState('')
+  const [regenerating, setRegenerating] = useState(false)
 
   if (status === 'loading') {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
@@ -103,6 +105,45 @@ export default function AIWorkoutPage() {
     }
     alert('All workouts saved! Go to the main page to see them.')
     router.push('/')
+  }
+
+  const regenerateWithFeedback = async () => {
+    if (!userFeedback.trim()) {
+      alert('Please describe what you would like to change about the workout.')
+      return
+    }
+
+    setRegenerating(true)
+
+    try {
+      const response = await fetch('/api/generate-workout-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal,
+          experience,
+          daysPerWeek,
+          equipment,
+          limitations,
+          preferences,
+          currentPlan: generatedPlan,
+          userFeedback
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.workoutPlan) {
+        setGeneratedPlan(data.workoutPlan)
+        setUserFeedback('') // Clear feedback after successful regeneration
+      } else {
+        alert('Failed to regenerate workout plan. Please try again.')
+      }
+    } catch (e) {
+      alert('Error regenerating plan: ' + String(e))
+    }
+
+    setRegenerating(false)
   }
 
   return (
@@ -219,30 +260,68 @@ export default function AIWorkoutPage() {
         ) : (
           <div>
             <div className="bg-white p-6 rounded-lg shadow mb-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">Your Personalized Workout Plan</h2>
-                <div className="space-x-2">
-                  <button
-                    onClick={saveAllWorkouts}
-                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-                  >
-                    Save All Workouts
-                  </button>
-                  <button
-                    onClick={() => {
-                      setGeneratedPlan([])
-                      setGoal('')
-                      setExperience('')
-                      setEquipment('')
-                      setLimitations('')
-                      setPreferences('')
-                    }}
-                    className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
-                  >
-                    Generate New Plan
-                  </button>
-                </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Personalized Workout Plan</h2>
+              <p className="text-gray-600 mb-6">
+                Review your workout plan below. If you need any changes, let us know and we'll adjust it for you!
+              </p>
+
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={saveAllWorkouts}
+                  className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 font-semibold"
+                >
+                  Save All Workouts
+                </button>
+                <button
+                  onClick={() => {
+                    setGeneratedPlan([])
+                    setUserFeedback('')
+                    setGoal('')
+                    setExperience('')
+                    setEquipment('')
+                    setLimitations('')
+                    setPreferences('')
+                  }}
+                  className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
+                >
+                  Start Over
+                </button>
               </div>
+            </div>
+
+            {/* Feedback Section */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg shadow mb-6 border-2 border-blue-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Need Changes?</h3>
+              <p className="text-gray-700 mb-4">
+                Tell us what you'd like to adjust and we'll regenerate the plan while keeping the exercises you like.
+              </p>
+
+              <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
+                <p className="text-sm text-gray-600 mb-2 font-semibold">Examples:</p>
+                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                  <li>"I don't have a treadmill, replace cardio exercises"</li>
+                  <li>"Replace bench press with a different chest exercise"</li>
+                  <li>"I prefer more leg exercises and fewer arm exercises"</li>
+                  <li>"Add more core work to each workout"</li>
+                  <li>"I have a shoulder injury, avoid overhead movements"</li>
+                </ul>
+              </div>
+
+              <textarea
+                value={userFeedback}
+                onChange={(e) => setUserFeedback(e.target.value)}
+                placeholder="Describe what you'd like to change... (e.g., 'I don't have a treadmill' or 'Replace deadlifts with something else')"
+                className="w-full p-4 border-2 border-gray-300 rounded-lg text-gray-900 focus:border-blue-500 focus:outline-none"
+                rows={4}
+              />
+
+              <button
+                onClick={regenerateWithFeedback}
+                disabled={regenerating || !userFeedback.trim()}
+                className="w-full bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 font-bold text-lg mt-4 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {regenerating ? 'Regenerating Workout...' : 'Regenerate Workout with Changes'}
+              </button>
             </div>
 
             <div className="space-y-4">

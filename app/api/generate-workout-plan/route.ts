@@ -15,9 +15,59 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { goal, experience, daysPerWeek, equipment, limitations, preferences } = body
+    const { goal, experience, daysPerWeek, equipment, limitations, preferences, currentPlan, userFeedback } = body
 
-    const prompt = `You are a professional fitness coach. Create a detailed ${daysPerWeek}-day per week workout plan based on these details:
+    let prompt = ''
+
+    if (currentPlan && userFeedback) {
+      // Regeneration with feedback
+      prompt = `You are a professional fitness coach. The user has requested changes to their workout plan.
+
+ORIGINAL WORKOUT PLAN:
+${JSON.stringify(currentPlan, null, 2)}
+
+USER'S FEEDBACK:
+"${userFeedback}"
+
+Original Plan Details:
+- Goal: ${goal}
+- Experience Level: ${experience}
+- Days Per Week: ${daysPerWeek}
+- Equipment: ${equipment}
+- Limitations/Injuries: ${limitations || 'None'}
+- Preferences: ${preferences || 'None'}
+
+IMPORTANT INSTRUCTIONS:
+1. Keep ALL exercises that the user did NOT mention or complain about - don't change them
+2. ONLY replace or modify the specific exercises or aspects the user mentioned in their feedback
+3. Make targeted changes based on their feedback (e.g., if they say "no treadmill", only replace treadmill exercises)
+4. Keep the same workout structure (same number of workouts, similar format)
+5. Maintain the sets and reps for exercises that aren't being changed
+6. For new exercises, use appropriate sets/reps based on the goal:
+   - For muscle building: 3-4 sets of 8-12 reps
+   - For strength: 4-5 sets of 4-6 reps
+   - For endurance: 2-3 sets of 12-20 reps
+7. Only include exercises that can be done with the available equipment
+8. Avoid exercises that might aggravate any mentioned limitations
+
+Format your response as a JSON array like this:
+[
+  {
+    "name": "Workout Name",
+    "exercises": [
+      {
+        "name": "Exercise 1",
+        "sets": 3,
+        "reps": "10-12"
+      }
+    ]
+  }
+]
+
+Return ONLY the JSON array, no other text.`
+    } else {
+      // Initial generation
+      prompt = `You are a professional fitness coach. Create a detailed ${daysPerWeek}-day per week workout plan based on these details:
 
 Goal: ${goal}
 Experience Level: ${experience}
@@ -57,6 +107,7 @@ Format your response as a JSON array like this:
 ]
 
 Return ONLY the JSON array, no other text.`
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
