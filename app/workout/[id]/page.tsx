@@ -250,23 +250,23 @@ export default function WorkoutPage() {
   // Preview screen - shown before workout starts
   if (!workoutStarted) {
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold text-blue-600">
+      <div className="min-h-screen bg-gray-100 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-4xl">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-blue-600 sm:text-3xl lg:text-4xl">
               {template.name}
             </h1>
             <button
               onClick={handleBack}
-              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+              className="w-full rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 sm:w-auto"
             >
               Back
             </button>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Workout Preview</h2>
-            <p className="text-gray-600 mb-4">
+          <div className="mb-6 rounded-lg bg-white p-4 shadow sm:p-6">
+            <h2 className="mb-4 text-xl font-bold text-gray-900 sm:text-2xl">Workout Preview</h2>
+            <p className="mb-4 text-gray-600">
               This workout contains {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
             </p>
 
@@ -294,7 +294,7 @@ export default function WorkoutPage() {
 
             <button
               onClick={startWorkout}
-              className="w-full bg-green-600 text-white px-6 py-4 rounded hover:bg-green-700 font-bold text-xl"
+              className="w-full rounded bg-green-600 px-4 py-3 text-lg font-bold text-white hover:bg-green-700 sm:px-6 sm:py-4 sm:text-xl"
             >
               Start Workout
             </button>
@@ -306,19 +306,19 @@ export default function WorkoutPage() {
 
   // Active workout screen
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-100 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-4xl">
         {/* Fixed header with timer */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6 sticky top-4 z-10">
-          <div className="flex justify-between items-center">
+        <div className="sticky top-2 z-10 mb-6 rounded-lg bg-white p-4 shadow sm:top-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-blue-600">
+              <h1 className="text-2xl font-bold text-blue-600 sm:text-3xl">
                 {template.name}
               </h1>
               <p className="text-sm text-gray-600">Workout in progress</p>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-green-600 font-mono">
+              <div className="text-2xl font-bold text-green-600 font-mono sm:text-3xl">
                 {formatTime(elapsedTime)}
               </div>
               <p className="text-xs text-gray-500">Elapsed time</p>
@@ -330,8 +330,8 @@ export default function WorkoutPage() {
           const lastExercise = lastSession?.exercises.find((e: any) => e.name === exercise.name)
           
           return (
-            <div key={exerciseIndex} className="bg-white p-6 rounded-lg shadow mb-6">
-              <div className="flex justify-between items-center mb-4">
+            <div key={exerciseIndex} className="mb-6 rounded-lg bg-white p-4 shadow sm:p-6">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-1">
                   <input
                     type="text"
@@ -347,7 +347,7 @@ export default function WorkoutPage() {
                 </div>
                 <button
                   onClick={() => removeExercise(exerciseIndex)}
-                  className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm ml-4"
+                  className="w-full rounded bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 sm:ml-4 sm:w-auto sm:py-1"
                 >
                   Remove Exercise
                 </button>
@@ -366,28 +366,28 @@ export default function WorkoutPage() {
 
               <div className="space-y-3">
                 {exercise.sets.map((set: any, setIndex: number) => (
-                  <div key={setIndex} className="flex gap-3 items-center">
-                    <span className="font-semibold text-gray-900 w-12">Set {setIndex + 1}</span>
+                  <div key={setIndex} className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
+                    <span className="w-full font-semibold text-gray-900 sm:w-12">Set {setIndex + 1}</span>
                     <input
                       type="number"
                       placeholder="Weight"
                       value={set.weight}
                       onChange={(e) => updateSet(exerciseIndex, setIndex, 'weight', e.target.value)}
-                      className="w-24 p-2 border rounded text-gray-900"
+                      className="min-w-[120px] flex-1 rounded border p-2 text-gray-900 sm:w-24 sm:flex-none"
                     />
-                    <span className="text-gray-700">lbs ×</span>
+                    <span className="text-sm text-gray-700 sm:text-base">lbs ×</span>
                     <input
                       type="number"
                       placeholder="Reps"
                       value={set.reps}
                       onChange={(e) => updateSet(exerciseIndex, setIndex, 'reps', e.target.value)}
-                      className="w-20 p-2 border rounded text-gray-900"
+                      className="min-w-[100px] flex-1 rounded border p-2 text-gray-900 sm:w-20 sm:flex-none"
                     />
-                    <span className="text-gray-700">reps</span>
+                    <span className="text-sm text-gray-700 sm:text-base">reps</span>
                     {exercise.sets.length > 1 && (
                       <button
                         onClick={() => removeSet(exerciseIndex, setIndex)}
-                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
+                        className="w-full rounded bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 sm:w-auto sm:py-1"
                       >
                         Remove
                       </button>
@@ -398,7 +398,7 @@ export default function WorkoutPage() {
 
               <button
                 onClick={() => addSet(exerciseIndex)}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className="mt-4 w-full rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 sm:w-auto"
               >
                 + Add Set
               </button>
@@ -406,9 +406,9 @@ export default function WorkoutPage() {
           )
         })}
 
-        <div className="bg-white p-4 rounded-lg shadow mb-6">
-          <h3 className="font-bold text-gray-900 mb-3">Add Exercise to This Workout</h3>
-          <div className="flex gap-2">
+        <div className="mb-6 rounded-lg bg-white p-4 shadow sm:p-6">
+          <h3 className="mb-3 font-bold text-gray-900">Add Exercise to This Workout</h3>
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
             <input
               type="text"
               placeholder="Exercise name (e.g., Cable Fly)"
@@ -418,23 +418,23 @@ export default function WorkoutPage() {
             />
             <button
               onClick={addExercise}
-              className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+              className="w-full rounded bg-green-600 px-6 py-2 text-white hover:bg-green-700 sm:w-auto"
             >
               Add
             </button>
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <button
             onClick={handleCancelWorkout}
-            className="flex-1 bg-red-600 text-white px-6 py-4 rounded hover:bg-red-700 font-bold text-lg"
+            className="flex-1 rounded bg-red-600 px-4 py-3 text-lg font-bold text-white hover:bg-red-700 sm:px-6 sm:py-4"
           >
             Cancel Workout
           </button>
           <button
             onClick={finishWorkout}
-            className="flex-1 bg-green-600 text-white px-6 py-4 rounded hover:bg-green-700 font-bold text-lg"
+            className="flex-1 rounded bg-green-600 px-4 py-3 text-lg font-bold text-white hover:bg-green-700 sm:px-6 sm:py-4"
           >
             Finish Workout
           </button>
@@ -448,16 +448,16 @@ export default function WorkoutPage() {
               <p className="text-gray-600 mb-6">
                 Are you sure you want to cancel this workout? All your progress will be lost and cannot be recovered.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1 bg-gray-600 text-white px-4 py-3 rounded hover:bg-gray-700 font-semibold"
+                  className="flex-1 rounded bg-gray-600 px-4 py-3 font-semibold text-white hover:bg-gray-700"
                 >
                   Keep Working Out
                 </button>
                 <button
                   onClick={confirmCancelWorkout}
-                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded hover:bg-red-700 font-semibold"
+                  className="flex-1 rounded bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700"
                 >
                   Yes, Cancel
                 </button>

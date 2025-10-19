@@ -19,6 +19,9 @@ export default function Home() {
   const [exerciseSearchResults, setExerciseSearchResults] = useState<any[]>([])
   const [searchingExercise, setSearchingExercise] = useState(false)
   const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(null)
+  const [workoutNameSuggestions, setWorkoutNameSuggestions] = useState<string[]>([])
+  const [showWorkoutNameSuggestions, setShowWorkoutNameSuggestions] = useState(false)
+  const [searchingWorkoutName, setSearchingWorkoutName] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -82,6 +85,34 @@ export default function Home() {
     updateExercise(index, exerciseName)
     setExerciseSearchResults([])
     setActiveExerciseIndex(null)
+  }
+
+  const searchWorkoutName = async (query: string) => {
+    if (query.length < 2) {
+      setWorkoutNameSuggestions([])
+      setShowWorkoutNameSuggestions(false)
+      return
+    }
+
+    setSearchingWorkoutName(true)
+    setShowWorkoutNameSuggestions(true)
+
+    try {
+      const response = await fetch(`/api/workout-name-suggestions?query=${encodeURIComponent(query)}`)
+      const data = await response.json()
+      setWorkoutNameSuggestions(data.suggestions || [])
+    } catch (e) {
+      console.error('Error fetching workout name suggestions:', e)
+      setWorkoutNameSuggestions([])
+    }
+
+    setSearchingWorkoutName(false)
+  }
+
+  const selectWorkoutName = (name: string) => {
+    setTemplateName(name)
+    setShowWorkoutNameSuggestions(false)
+    setWorkoutNameSuggestions([])
   }
 
   const saveTemplate = async () => {
@@ -188,13 +219,19 @@ export default function Home() {
           <div className="text-right">
             <p className="text-gray-700 mb-2">Welcome, {session.user?.name}!</p>
             <div className="space-x-2">
-              <a 
+              <a
+                href="/progress"
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 inline-block"
+              >
+                Progress
+              </a>
+              <a
                 href="/food"
                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 inline-block"
               >
                 Food
               </a>
-              <a 
+              <a
                 href="/goals"
                 className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 inline-block"
               >
@@ -249,13 +286,41 @@ export default function Home() {
             <h2 className="text-2xl font-bold mb-4 text-gray-900">
               {editingTemplate ? 'Edit Workout' : 'New Workout'}
             </h2>
-            <input
-              type="text"
-              placeholder="Workout name (e.g., Push Day)"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              className="w-full p-3 border rounded mb-4 text-gray-900"
-            />
+            <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Workout name (e.g., Push Day)"
+                value={templateName}
+                onChange={(e) => {
+                  setTemplateName(e.target.value)
+                  searchWorkoutName(e.target.value)
+                }}
+                onFocus={() => {
+                  if (templateName.length >= 2) {
+                    searchWorkoutName(templateName)
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => {
+                    setShowWorkoutNameSuggestions(false)
+                  }, 200)
+                }}
+                className="w-full p-3 border rounded text-gray-900"
+              />
+              {showWorkoutNameSuggestions && workoutNameSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-y-auto">
+                  {workoutNameSuggestions.map((suggestion, i) => (
+                    <div
+                      key={i}
+                      onClick={() => selectWorkoutName(suggestion)}
+                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
+                    >
+                      <div className="font-semibold text-gray-900">{suggestion}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             
             <h3 className="font-bold mb-2 text-gray-900">Exercises:</h3>
             {exercises.map((exercise, index) => (
@@ -382,29 +447,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">Workout History</h2>
-          {!workouts || workouts.length === 0 ? (
-            <p className="text-gray-500">No workouts logged yet</p>
-          ) : (
-            <ul className="space-y-4">
-              {workouts.map((workout: any) => (
-                <li key={workout._id} className="border-b pb-3">
-                  <strong className="text-lg">{workout.templateName}</strong>
-                  <br />
-                  <span className="text-sm text-gray-600">
-                    {workout.exercises.map((ex: any) => ex.name).join(', ')}
-                  </span>
-                  <br />
-                  <span className="text-sm text-gray-500">
-                    {new Date(workout.date).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
           )}
         </div>
       </div>
