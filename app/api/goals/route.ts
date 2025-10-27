@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
 import clientPromise from '@/lib/mongodb'
+import { verifyFirebaseToken } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    // Verify Firebase token
+    const authHeader = request.headers.get('authorization')
+    const decodedToken = await verifyFirebaseToken(authHeader)
     
-    if (!session?.user?.email) {
+    if (!decodedToken?.email) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -16,10 +18,10 @@ export async function POST(request: NextRequest) {
     
     // Update or insert goals for this user
     await db.collection('goals').updateOne(
-      { userEmail: session.user.email },
+      { userEmail: decodedToken.email },
       {
         $set: {
-          userEmail: session.user.email,
+          userEmail: decodedToken.email,
           dailyCalories: body.dailyCalories,
           dailyProtein: body.dailyProtein,
           weeklyWorkouts: body.weeklyWorkouts,
@@ -34,27 +36,34 @@ export async function POST(request: NextRequest) {
     )
     
     return Response.json({ success: true })
-  } catch (e) {
-    return Response.json({ success: false, error: e }, { status: 500 })
+  } catch (e: any) {
+    console.error('POST /api/goals error:', e)
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    // Verify Firebase token
+    const authHeader = request.headers.get('authorization')
+    const decodedToken = await verifyFirebaseToken(authHeader)
     
-    if (!session?.user?.email) {
+    if (!decodedToken?.email) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const userEmail = searchParams.get('userEmail') || decodedToken.email
 
     const client = await clientPromise
     const db = client.db('fitness-tracker')
     const goals = await db.collection('goals').findOne({ 
-      userEmail: session.user.email 
+      userEmail 
     })
     
-    return Response.json({ goals })
-  } catch (e) {
-    return Response.json({ error: e }, { status: 500 })
+    return Response.json(goals || null)
+  } catch (e: any) {
+    console.error('GET /api/goals error:', e)
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }

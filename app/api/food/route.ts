@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
 import clientPromise from '@/lib/mongodb'
+import { verifyFirebaseToken } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    // Verify Firebase token
+    const authHeader = request.headers.get('authorization')
+    const decodedToken = await verifyFirebaseToken(authHeader)
     
-    if (!session?.user?.email) {
+    if (!decodedToken?.email) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -15,47 +17,57 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     const food = {
-      userEmail: session.user.email,
+      userEmail: body.userEmail || decodedToken.email,
       name: body.name,
       calories: body.calories,
       protein: body.protein,
       mealType: body.mealType || 'snack',
-      date: new Date()
+      date: body.date || new Date().toISOString().split('T')[0]
     }
     
     const result = await db.collection('food').insertOne(food)
     
-    return Response.json({ success: true, id: result.insertedId })
-  } catch (e) {
-    return Response.json({ success: false, error: e }, { status: 500 })
+    return Response.json({ ...food, _id: result.insertedId })
+  } catch (e: any) {
+    console.error('POST /api/food error:', e)
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    // Verify Firebase token
+    const authHeader = request.headers.get('authorization')
+    const decodedToken = await verifyFirebaseToken(authHeader)
     
-    if (!session?.user?.email) {
+    if (!decodedToken?.email) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const userEmail = searchParams.get('userEmail') || decodedToken.email
 
     const client = await clientPromise
     const db = client.db('fitness-tracker')
     const foods = await db.collection('food')
-      .find({ userEmail: session.user.email })
+      .find({ userEmail })
       .sort({ date: -1 })
       .toArray()
     
-    return Response.json({ foods })
-  } catch (e) {
-    return Response.json({ error: e }, { status: 500 })
+    return Response.json(foods)
+  } catch (e: any) {
+    console.error('GET /api/food error:', e)
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }
+
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    // Verify Firebase token
+    const authHeader = request.headers.get('authorization')
+    const decodedToken = await verifyFirebaseToken(authHeader)
     
-    if (!session?.user?.email) {
+    if (!decodedToken?.email) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -72,11 +84,12 @@ export async function DELETE(request: NextRequest) {
     const { ObjectId } = require('mongodb')
     await db.collection('food').deleteOne({
       _id: new ObjectId(id),
-      userEmail: session.user.email
+      userEmail: decodedToken.email
     })
     
-    return Response.json({ success: true })
-  } catch (e) {
-    return Response.json({ error: String(e) }, { status: 500 })
+    return Response.json({ message: 'Food deleted successfully' })
+  } catch (e: any) {
+    console.error('DELETE /api/food error:', e)
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }

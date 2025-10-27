@@ -1,28 +1,55 @@
 import { NextRequest } from 'next/server'
-import clientPromise from '@/lib/mongodb'
 import bcrypt from 'bcryptjs'
+import clientPromise from '@/lib/mongodb'
+import {
+  buildRateLimitKey,
+  consumeRateLimit,
+  validateRegistrationInput
+} from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password } = await request.json()
-    
-    if (!name || !email || !password) {
-      return Response.json({ error: 'Missing fields' }, { status: 400 })
+    const body = await request.json()
+    const validation = validateRegistrationInput(body)
+
+    if (!validation.valid || !validation.sanitized) {
+      return Response.json(
+        { error: validation.errors[0] ?? 'Invalid registration details.' },
+        { status: 400 }
+      )
+    }
+
+    const { name, email, password } = validation.sanitized
+    const rateLimitKey = buildRateLimitKey(request, 'register', email)
+    const rateLimitResult = consumeRateLimit(rateLimitKey, {
+      limit: 5,
+      windowMs: 60_000
+    })
+
+    if (!rateLimitResult.success) {
+      return Response.json(
+        { error: 'Too many attempts. Please wait a minute and try again.' },
+        {
+          status: 429,
+          headers: rateLimitResult.retryAfterMs
+            ? { 'Retry-After': Math.ceil(rateLimitResult.retryAfterMs / 1000).toString() }
+            : undefined
+        }
+      )
     }
 
     const client = await clientPromise
     const db = client.db('fitness-tracker')
-    
-    // Check if user already exists
     const existingUser = await db.collection('users').findOne({ email })
     if (existingUser) {
-      return Response.json({ error: 'User already exists' }, { status: 400 })
+      return Response.json(
+        { error: 'Unable to register with those credentials.' },
+        { status: 400 }
+      )
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
-    
-    // Create user
+    const hashedPassword = await bcrypt.hash(password, 12)
+
     const result = await db.collection('users').insertOne({
       name,
       email,

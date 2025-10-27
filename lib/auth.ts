@@ -16,10 +16,11 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        const normalizedEmail = credentials.email.trim().toLowerCase()
         const client = await clientPromise
         const db = client.db('fitness-tracker')
         const user = await db.collection('users').findOne({
-          email: credentials.email
+          email: normalizedEmail
         })
 
         if (!user) {
